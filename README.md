@@ -1,128 +1,47 @@
 # Research Agent
 
-Primo AI Agent personale: fai una domanda e l'agente può utilizzare la ricerca web per trovare informazioni aggiornate, analizzarle e restituire una risposta con le fonti.
+Fai una domanda: l'agente cerca sul web, legge i risultati e risponde citando le fonti. Usa solo servizi gratuiti.
 
 ## Architettura
 
 ```text
-Utente
-  |
+Browser (public/index.html)
+  |  POST /api/ask
   v
-Streamlit UI
-  |
-  v
-Research Agent
-  |
-  +--> LLM
-  |
-  +--> Web Search
-  |
+FastAPI (api/index.py)
+  |--> Ricerca web: Tavily (se c'è la chiave) oppure DuckDuckGo
+  |--> LLM gratuito su OpenRouter
   v
 Risposta + fonti
 ```
 
-## Requisiti
+## Servizi gratuiti
 
-- macOS
-- Python 3.11+
-- una API key OpenAI con credito disponibile
+- **LLM**: [OpenRouter](https://openrouter.ai/keys), modelli `:free` (circa 50 richieste al giorno senza credito).
+- **Ricerca web**: [Tavily](https://app.tavily.com) (1000 ricerche al mese, opzionale). Senza chiave si usa DuckDuckGo.
 
-## Installazione
+## Deploy su Vercel
 
-Apri Terminale nella cartella del progetto:
+In **Settings → Environment Variables** aggiungi:
+
+| Variabile | Obbligatoria | Note |
+|---|---|---|
+| `OPENROUTER_API_KEY` | sì | chiave OpenRouter |
+| `OPENROUTER_MODELS` | no | modelli separati da virgola, provati in ordine (default `openrouter/free`) |
+| `TAVILY_API_KEY` | no | ricerca più affidabile di DuckDuckGo |
+
+Poi rifai il deploy.
+
+## Sviluppo locale
 
 ```bash
-cd research-agent
-
 python3 -m venv .venv
 source .venv/bin/activate
+pip install -r requirements.txt uvicorn
 
-pip install -r requirements.txt
+cp .env.example .env   # inserisci le chiavi
+export $(grep -v '^#' .env | xargs)
+uvicorn api.index:app --reload
 ```
 
-Crea il file `.env`:
-
-```bash
-cp .env.example .env
-```
-
-Aprilo:
-
-```bash
-nano .env
-```
-
-Inserisci la tua API key:
-
-```text
-OPENAI_API_KEY=sk-...
-OPENAI_MODEL=gpt-6-luna
-```
-
-Salva con:
-
-- CTRL+O
-- INVIO
-- CTRL+X
-
-## Avvio
-
-```bash
-source .venv/bin/activate
-streamlit run app.py
-```
-
-Si aprirà l'interfaccia web di Streamlit.
-
-Se non si apre automaticamente, vai su:
-
-http://localhost:8501
-
-## Esempi di domande
-
-```text
-Qual è l'ultima versione di Shopify CLI e quali sono le novità principali?
-```
-
-```text
-Quali sono le principali novità dell'AI uscite questa settimana?
-```
-
-```text
-Confronta Shopify Functions e Salesforce Commerce Cloud OCAPI.
-Usa principalmente documentazione ufficiale.
-```
-
-```text
-Qual è la situazione attuale dei tassi BCE?
-```
-
-## Cosa imparare nella V1
-
-Il progetto volutamente non usa ancora LangChain, CrewAI o altri framework.
-
-Il flusso fondamentale è:
-
-1. input utente
-2. modello
-3. tool web search
-4. analisi
-5. risposta
-6. fonti
-
-Una volta capito questo, possiamo aggiungere:
-
-- memoria
-- ricerca multi-step
-- ranking delle fonti
-- RAG con documenti personali
-- tool custom
-- database
-- agenti specializzati
-- API backend
-- autenticazione
-- deployment
-
-## Costi
-
-La Web Search API è fatturata separatamente oltre ai token del modello. Controlla i prezzi aggiornati prima di usare il progetto intensivamente.
+Apri http://localhost:8000/api/health per verificare. Per l'interfaccia completa usa `vercel dev`.
