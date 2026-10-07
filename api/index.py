@@ -22,12 +22,12 @@ class AskRequest(BaseModel):
     question: str
 
 
-@app.get("/health")
+@app.get("/api/health")
 def health():
     return {"status": "ok"}
 
 
-@app.post("/ask")
+@app.post("/api/ask")
 def ask(request: AskRequest):
     question = request.question.strip()
 
