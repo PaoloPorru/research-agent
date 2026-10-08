@@ -1,47 +1,56 @@
 # Research Agent
 
-Fai una domanda: l'agente cerca sul web, legge i risultati e risponde citando le fonti. Usa solo servizi gratuiti.
+Assistente personale per il lavoro: cerca sul web, ricorda quello che gli insegni e risponde unendo memoria e ricerca, citando le fonti. Solo servizi gratuiti.
 
-## Architettura
+## Come funziona
 
 ```text
-Browser (public/index.html)
-  |  POST /api/ask
+Browser (public/index.html, protetto da password)
+  |  /api/chat, /api/memories/*
   v
 FastAPI (api/index.py)
-  |--> Ricerca web: Tavily (se c'è la chiave) oppure DuckDuckGo
-  |--> LLM gratuito su OpenRouter
-  v
-Risposta + fonti
+  |--> Memoria: Supabase (Postgres, ricerca full-text in italiano)
+  |--> Web: Tavily (se c'è la chiave) oppure DuckDuckGo
+  |--> LLM gratuito: OpenRouter
 ```
 
-## Servizi gratuiti
+Come gli dai informazioni:
 
-- **LLM**: [OpenRouter](https://openrouter.ai/keys), modelli `:free` (circa 50 richieste al giorno senza credito).
-- **Ricerca web**: [Tavily](https://app.tavily.com) (1000 ricerche al mese, opzionale). Senza chiave si usa DuckDuckGo.
+- **In chat**: scrivi `ricorda: il cliente Rossi paga a 60 giorni` (salva una nota senza usare richieste al modello).
+- **Documenti**: dal pannello Memoria carichi PDF, TXT, MD, CSV (il testo è estratto nel tuo browser).
+- **Google**: incolli il link di un Docs/Sheets/Slides condiviso con «Chiunque abbia il link».
 
-## Deploy su Vercel
+Il pulsante 🌐 Web attiva o disattiva la ricerca web per le domande.
 
-In **Settings → Environment Variables** aggiungi:
+## Setup
+
+1. **Supabase** (gratis): crea un progetto su supabase.com, apri *SQL Editor*, incolla ed esegui `supabase/schema.sql`.
+2. **OpenRouter** (gratis): chiave su openrouter.ai/keys.
+3. **Vercel** → Settings → Environment Variables:
 
 | Variabile | Obbligatoria | Note |
 |---|---|---|
+| `APP_PASSWORD` | sì | password per entrare nell'app |
 | `OPENROUTER_API_KEY` | sì | chiave OpenRouter |
-| `OPENROUTER_MODELS` | no | modelli separati da virgola, provati in ordine (default `openrouter/free`) |
-| `TAVILY_API_KEY` | no | ricerca più affidabile di DuckDuckGo |
+| `SUPABASE_URL` | sì | Supabase → Project Settings → API → Project URL |
+| `SUPABASE_SERVICE_KEY` | sì | Supabase → API → chiave `service_role` / secret (solo sul server, mai nel browser) |
+| `OPENROUTER_MODELS` | no | modelli separati da virgola (default `openrouter/free`) |
+| `TAVILY_API_KEY` | no | ricerca web più affidabile (1000/mese gratis) |
 
-Poi rifai il deploy.
+4. Redeploy.
+
+## Limiti
+
+- I modelli free di OpenRouter hanno un tetto giornaliero di richieste.
+- La ricerca nella memoria è per parole chiave (non semantica): funziona bene se nelle note usi le stesse parole che userai nelle domande.
+- Google: solo file condivisi via link; l'accesso diretto al tuo Drive richiederebbe OAuth.
 
 ## Sviluppo locale
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
+python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt uvicorn
-
-cp .env.example .env   # inserisci le chiavi
+cp .env.example .env   # compila i valori
 export $(grep -v '^#' .env | xargs)
 uvicorn api.index:app --reload
 ```
-
-Apri http://localhost:8000/api/health per verificare. Per l'interfaccia completa usa `vercel dev`.
