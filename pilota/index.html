@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="it"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pilota</title><link rel="manifest" href="manifest.json"><link rel="apple-touch-icon" href="icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Pilota">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="theme-color" content="#14213D">
+<style>
+:root{--bg:#EEF1F4;--ink:#14213D;--mut:#5B6678;--card:#fff;--line:#D5DBE3;--ok:#1F8A70;--alta:#B8403A;--media:#B87A12;--bassa:#5B6678}
+@media(prefers-color-scheme:dark){:root{--bg:#0F1726;--ink:#E8ECF2;--mut:#93A0B5;--card:#18233A;--line:#2A3853;--ok:#3FCBA5;--alta:#EE7A72;--media:#E0A83A;--bassa:#93A0B5}}
+*{box-sizing:border-box}html,body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 -apple-system,system-ui,sans-serif}
+body{padding:calc(env(safe-area-inset-top) + 8px) 16px calc(env(safe-area-inset-bottom) + 24px);max-width:640px;margin:0 auto}
+header{display:flex;justify-content:space-between;align-items:center}
+h1{font:600 30px "Iowan Old Style",Georgia,serif;margin:10px 0}
+h2{font-size:14px;color:var(--mut);margin:22px 0 6px;font-weight:600}
+.pill{border:1.5px solid var(--line);background:var(--card);color:var(--ink);border-radius:20px;padding:8px 14px;font-size:15px}
+.next{background:var(--ink);color:var(--bg);border-radius:16px;padding:18px}
+.next b{display:block;font:600 26px "Iowan Old Style",Georgia,serif}.next span{opacity:.8}
+.card{background:var(--card);border:1px solid var(--line);border-left:6px solid var(--bassa);border-radius:12px;padding:12px;margin:10px 0}
+.card.alta{border-left-color:var(--alta)}.card.media{border-left-color:var(--media)}
+.card h3{margin:0;font-size:16px}.card p{margin:3px 0;color:var(--mut);font-size:14px}
+.row{display:flex;gap:8px;margin-top:8px}.row a{flex:1;text-align:center;padding:10px;border-radius:10px;border:1.5px solid var(--line);color:var(--ink);text-decoration:none;font-weight:600;font-size:15px}
+.row a.main{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.draft{font-style:italic;border-left:3px solid var(--line);padding-left:8px}
+.err{color:var(--alta)}
+</style></head><body>
+<header><h1>Pilota</h1><span><a class="pill" href="calshow://" style="text-decoration:none">Calendario</a> <a class="pill" href="message://" style="text-decoration:none">Mail</a> <button class="pill" id="r">↻</button></span></header>
+<div id="o"><p style="color:var(--mut)">Carico…</p></div>
+<script>
+const $=s=>document.querySelector(s),esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const p=new URLSearchParams(location.search);try{if(p.get('k'))localStorage.setItem('k',p.get('k'))}catch{}
+let K='';try{K=localStorage.getItem('k')||''}catch{}
+const rel=s=>{const m=Math.round((new Date(s)-Date.now())/6e4);return m<=0?'in corso':m<60?`tra ${m} min`:`tra ${Math.floor(m/60)} h ${m%60} min`};
+async function load(){
+  if(!K){$('#o').innerHTML='<p class="err">Apri una volta il link con ?k=IL_TUO_SEGRETO per salvare l\'accesso.</p>';return}
+  try{
+    const r=await fetch('/api/digest?k='+encodeURIComponent(K));const d=await r.json();if(d.error)throw new Error(d.error);
+    const e=d.events.find(x=>!x.allDay)||d.events[0];let h='';
+    h+=e?`<div class="next"><span>${e.allDay?'Oggi':rel(e.start)}</span><b>${esc(e.title)}</b><span>${e.allDay?'':new Date(e.start).toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'})} ${esc(e.location)}</span></div>`:'<div class="next"><b>Agenda libera</b><span>Nessun impegno nelle prossime 24 ore</span></div>';
+    if(d.events.length>1)h+='<h2>Dopo</h2>'+d.events.filter(x=>x!==e).map(x=>`<p style="margin:4px 0">${x.allDay?'Giornata':new Date(x.start).toLocaleString('it-IT',{weekday:'short',hour:'2-digit',minute:'2-digit'})} · ${esc(x.title)}</p>`).join('');
+    h+=`<h2>Email da leggere (${d.mails.length})</h2>`;
+    h+=d.mails.map(m=>`<div class="card ${esc(m.priority)}"><h3>${esc(m.subject)}</h3><p>${esc(m.from)} · ${esc(m.why)}</p>${m.draft?`<p class="draft">${esc(m.draft)}</p>`:''}
+      <div class="row"><a href="https://mail.google.com/mail/u/0/#inbox/${esc(m.id)}">Apri</a>${m.draft?`<a class="main" href="mailto:${encodeURIComponent(m.email)}?subject=${encodeURIComponent('Re: '+m.subject.replace(/^Re:\s*/i,''))}&body=${encodeURIComponent(m.draft)}">Rispondi</a>`:''}</div></div>`).join('')||'<p style="color:var(--mut)">Tutto letto ✓</p>';
+    $('#o').innerHTML=h;
+    try{navigator.setAppBadge?.(d.mails.length)}catch{}
+  }catch(e){$('#o').innerHTML=`<p class="err">${esc(e.message)}</p>`}
+}
+$('#r').onclick=load;document.addEventListener('visibilitychange',()=>{if(!document.hidden)load()});load();
+if('serviceWorker'in navigator)addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+</script></body></html>
